@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CNC-FC350 — Fixed-Column Box-Frame Mill</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d1117;overflow:hidden;font-family:'Noto Sans KR',sans-serif}
+#info{position:fixed;top:16px;left:50%;transform:translateX(-50%);color:#c9d1d9;font-size:13px;text-align:center;z-index:10;pointer-events:none}
+#info h2{font-size:18px;color:#58a6ff;margin-bottom:4px}
+#info small{color:#8b949e}
+#label{position:fixed;padding:6px 14px;background:rgba(22,27,34,0.92);border:1px solid #30363d;border-radius:8px;color:#e6edf3;font-size:13px;font-weight:600;pointer-events:none;display:none;z-index:20;white-space:nowrap}
+#legend{position:fixed;bottom:16px;left:16px;background:rgba(22,27,34,0.9);border:1px solid #30363d;border-radius:10px;padding:12px 16px;z-index:10;font-size:12px;color:#8b949e}
+#legend h4{color:#58a6ff;margin-bottom:6px;font-size:13px}
+#legend div{display:flex;align-items:center;gap:8px;margin:3px 0}
+#legend span{width:12px;height:12px;border-radius:3px;display:inline-block}
+#specs{position:fixed;bottom:16px;right:16px;background:rgba(22,27,34,0.9);border:1px solid #30363d;border-radius:10px;padding:12px 16px;z-index:10;font-size:11px;color:#8b949e;line-height:1.7}
+#specs h4{color:#58a6ff;margin-bottom:6px;font-size:13px}
+#specs b{color:#e6edf3}
+canvas{display:block}
+</style>
+</head>
+<body>
+<div id="info">
+  <h2>CNC-FC350 — Fixed-Column Box-Frame Mill</h2>
+  <span>가공영역 350×300×150mm | HGR20 + SFU1605 | 컬럼형 박스프레임</span><br>
+  <small>마우스 드래그: 회전 | 스크롤: 줌 | 우클릭: 이동 | 호버: 부품명</small>
+</div>
+<div id="label"></div>
+<div id="legend">
+  <h4>부품 카테고리</h4>
+  <div><span style="background:#94a3b8"></span>A. 프레임 (6061-T6)</div>
+  <div><span style="background:#7ee787"></span>B. 리니어 (HGR20)</div>
+  <div><span style="background:#f0883e"></span>C. 스핀들</div>
+  <div><span style="background:#e3b341"></span>D. 모터/구동</div>
+  <div><span style="background:#bc8cff"></span>E. 4축 로터리</div>
+  <div><span style="background:#79c0ff"></span>F. 볼스크류</div>
+</div>
+<div id="specs">
+  <h4>CNC-FC350 Specifications</h4>
+  가공영역: <b>350×300×150mm</b><br>
+  프레임: <b>6061-T6 박스 컬럼</b><br>
+  리니어: <b>HGR20 전축</b><br>
+  볼스크류: <b>SFU1605 XYZ</b><br>
+  스핀들: <b>1.5kW 수냉 ER16 65mm</b><br>
+  모터: <b>NEMA23 3.0Nm ×4</b><br>
+  정밀도: <b>±0.01mm (외주 가공)</b><br>
+  프레임 무게: <b>~55kg</b><br>
+  외형: <b>750×650×600mm</b>
+</div>
+
+<script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+
+/* ========== SCENE SETUP ========== */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0d1117);
+scene.fog = new THREE.Fog(0x0d1117, 120, 300);
+
+const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 500);
+camera.position.set(65, 50, 70);
+
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const ctrl = new OrbitControls(camera, renderer.domElement);
+ctrl.enableDamping = true;
+ctrl.dampingFactor = 0.08;
+ctrl.target.set(0, 18, 0);
+
+/* Lights */
+scene.add(new THREE.AmbientLight(0x404860, 1.2));
+const dl = new THREE.DirectionalLight(0xffffff, 1.5);
+dl.position.set(40, 60, 50); dl.castShadow = true;
+dl.shadow.mapSize.set(1024, 1024);
+dl.shadow.camera.left = -50; dl.shadow.camera.right = 50;
+dl.shadow.camera.top = 50; dl.shadow.camera.bottom = -50;
+scene.add(dl);
+const dl2 = new THREE.DirectionalLight(0x8888ff, 0.4);
+dl2.position.set(-30, 40, -40); scene.add(dl2);
+const dl3 = new THREE.DirectionalLight(0xffaa44, 0.3);
+dl3.position.set(20, 10, 60); scene.add(dl3);
+
+/* Grid */
+const grid = new THREE.GridHelper(100, 50, 0x1e2330, 0x1e2330);
+grid.position.y = -0.5; scene.add(grid);
+
+/* ========== MATERIALS ========== */
+const mat = (c, o=1) => new THREE.MeshStandardMaterial({
+  color:c, roughness:0.45, metalness:0.35, transparent:o<1, opacity:o
+});
+const M = {
+  frame:    mat(0x94a3b8),      // A. 프레임 — 슬레이트
+  frameDk:  mat(0x7a8594),      // 프레임 어둡게
+  table:    mat(0xb0b8c4),      // 테이블
+  rail:     mat(0x7ee787),      // B. 리니어 — 그린
+  block:    mat(0x5cc96e),      // 블록
+  spindle:  mat(0xf0883e),      // C. 스핀들 — 오렌지
+  clamp:    mat(0xd07030),      // 클램프
+  motor:    mat(0xe3b341),      // D. 모터 — 골드
+  motorShaft: mat(0xcccccc),    // 모터 샤프트
+  rotary:   mat(0xbc8cff),      // E. 로터리 — 퍼플
+  screw:    mat(0x79c0ff),      // F. 볼스크류 — 블루
+  bearing:  mat(0x5a90c0),      // 베어링 블록
+  ghost:    mat(0x94a3b8, 0.12),// 투명
+  coupling: mat(0xaaaaaa),      // 커플링
+};
+
+/* ========== HELPER FUNCTIONS ========== */
+const parts = [];
+
+function box(w, h, d, x, y, z, m, name) {
+  const g = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+  g.position.set(x, y, z); g.castShadow = true; g.receiveShadow = true;
+  g.userData.name = name; scene.add(g); parts.push(g); return g;
+}
+
+function cyl(r, h, x, y, z, m, name, rx=0, rz=0) {
+  const g = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 24), m);
+  g.position.set(x, y, z); g.rotation.x = rx; g.rotation.z = rz;
+  g.castShadow = true; g.userData.name = name; scene.add(g); parts.push(g); return g;
+}
+
+/* ========================================
+   DIMENSIONS (cm scale: 1 unit = 1cm)
+   Working area: 35×30×15cm (350×300×150mm)
+   ======================================== */
+
+// Overall machine envelope: ~75×65×60cm
+
+// ===== A. FRAME — 6061-T6 Box Column =====
+
+// A1. Base Plate: 700×600×25mm
+const BASE_W = 70, BASE_D = 60, BASE_H = 2.5;
+box(BASE_W, BASE_H, BASE_D, 0, BASE_H/2, 0, M.frame,
+  'A1 베이스 플레이트 (700×600×25mm, 6061-T6)');
+
+// Column dimensions
+const COL_W = 44;    // column inner width (440mm) — spans table + clearance
+const COL_D = 22;    // column depth (220mm)
+const COL_H = 50;    // column height (500mm)
+const COL_T = 2.5;   // wall thickness (25mm)
+const COL_Z = -(BASE_D/2 - COL_D/2); // column at rear of base
+
+// A2. Column Back Wall: 450×500×25mm
+box(COL_W + COL_T*2, COL_H, COL_T,
+  0, BASE_H + COL_H/2, COL_Z - COL_D/2 + COL_T/2,
+  M.frameDk, 'A2 컬럼 후면벽 (450×500×25mm)');
+
+// A3. Column Left Wall: 25×500×220mm
+box(COL_T, COL_H, COL_D,
+  -(COL_W/2 + COL_T/2), BASE_H + COL_H/2, COL_Z,
+  M.frame, 'A3 컬럼 좌측벽 (25×500×220mm)');
+
+// A4. Column Right Wall: 25×500×220mm
+box(COL_T, COL_H, COL_D,
+  (COL_W/2 + COL_T/2), BASE_H + COL_H/2, COL_Z,
+  M.frame, 'A4 컬럼 우측벽 (25×500×220mm)');
+
+// A5. Column Top Plate: 450×25×220mm
+box(COL_W + COL_T*2, COL_T, COL_D,
+  0, BASE_H + COL_H + COL_T/2, COL_Z,
+  M.frame, 'A5 컬럼 상부 플레이트 (450×25×220mm)');
+
+// A6. Gusset reinforcements (4 corners — column to base)
+const gussetSize = 6;
+const gussetPositions = [
+  [-(COL_W/2), BASE_H + gussetSize/2, COL_Z - COL_D/2 + gussetSize/2],
+  [(COL_W/2),  BASE_H + gussetSize/2, COL_Z - COL_D/2 + gussetSize/2],
+  [-(COL_W/2), BASE_H + gussetSize/2, COL_Z + COL_D/2 - gussetSize/2],
+  [(COL_W/2),  BASE_H + gussetSize/2, COL_Z + COL_D/2 - gussetSize/2],
+];
+gussetPositions.forEach((p, i) => {
+  // Triangular gusset approximated as rotated box
+  box(COL_T*0.8, gussetSize, gussetSize, p[0], p[1], p[2], M.frameDk,
+    'A6 거셋 보강재 #' + (i+1));
+});
+
+// A7. Leveling feet (4 corners of base)
+[[BASE_W/2-3, -0.8, BASE_D/2-3], [-(BASE_W/2-3), -0.8, BASE_D/2-3],
+ [BASE_W/2-3, -0.8, -(BASE_D/2-3)], [-(BASE_W/2-3), -0.8, -(BASE_D/2-3)]
+].forEach((p, i) => {
+  cyl(1.5, 1.6, p[0], p[1], p[2], M.frameDk, 'A7 레벨링 풋 #'+(i+1));
+});
+
+
+// ===== Y-AXIS (front-back, Z direction in Three.js) =====
+// Y-axis rides on base plate, moves saddle front-back
+
+// B1. Y-axis HGR20 Rails (2, on base, running in Z direction)
+const Y_RAIL_LEN = 50; // 500mm
+const Y_RAIL_SEP = 24; // 240mm apart
+box(2, 1.5, Y_RAIL_LEN, -Y_RAIL_SEP/2, BASE_H+0.75, 0, M.rail,
+  'B1 HGR20 Y축 레일 L (500mm)');
+box(2, 1.5, Y_RAIL_LEN, Y_RAIL_SEP/2, BASE_H+0.75, 0, M.rail,
+  'B1 HGR20 Y축 레일 R (500mm)');
+
+// Y-axis blocks (4)
+const yBlkY = BASE_H + 1.5 + 0.8;
+[[-Y_RAIL_SEP/2, yBlkY, -7], [-Y_RAIL_SEP/2, yBlkY, 7],
+ [Y_RAIL_SEP/2, yBlkY, -7],  [Y_RAIL_SEP/2, yBlkY, 7]
+].forEach((p, i) => {
+  box(3.2, 1.6, 5, p[0], p[1], p[2], M.block, 'B1 HGH20CA Y블록 #'+(i+1));
+});
+
+// F1. Y-axis Ball Screw SFU1605
+const yBsY = BASE_H + 1.2;
+cyl(0.8, Y_RAIL_LEN-4, 0, yBsY, 0, M.screw,
+  'F1 SFU1605 Y축 볼스크류 (460mm)', Math.PI/2, 0);
+// BK12/BF12
+cyl(1.5, 2, 0, yBsY, -(Y_RAIL_LEN/2-1), M.bearing, 'F1 BK12 Y축 고정단');
+cyl(1.2, 2, 0, yBsY, (Y_RAIL_LEN/2-1), M.bearing, 'F1 BF12 Y축 자유단');
+
+// A8. Y-Saddle Plate: 480×400×20mm
+const SADDLE_W = 48, SADDLE_D = 40, SADDLE_H = 2;
+const saddleY = BASE_H + 1.5 + 1.6 + SADDLE_H/2; // on top of blocks
+box(SADDLE_W, SADDLE_H, SADDLE_D, 0, saddleY, 0, M.frame,
+  'A8 Y축 새들 플레이트 (480×400×20mm)');
+
+
+// ===== X-AXIS (left-right, X direction in Three.js) =====
+// X-axis rides on saddle, moves table left-right
+
+const xBaseY = saddleY + SADDLE_H/2; // top of saddle
+
+// B2. X-axis HGR20 Rails (2, on saddle, running in X direction)
+const X_RAIL_LEN = 55; // 550mm
+const X_RAIL_SEP = 26; // 260mm apart
+box(X_RAIL_LEN, 1.5, 2, 0, xBaseY+0.75, -X_RAIL_SEP/2, M.rail,
+  'B2 HGR20 X축 레일 F (550mm)');
+box(X_RAIL_LEN, 1.5, 2, 0, xBaseY+0.75, X_RAIL_SEP/2, M.rail,
+  'B2 HGR20 X축 레일 R (550mm)');
+
+// X-axis blocks (4)
+const xBlkY = xBaseY + 1.5 + 0.8;
+[[-8, xBlkY, -X_RAIL_SEP/2], [8, xBlkY, -X_RAIL_SEP/2],
+ [-8, xBlkY, X_RAIL_SEP/2],  [8, xBlkY, X_RAIL_SEP/2]
+].forEach((p, i) => {
+  box(5, 1.6, 3.2, p[0], p[1], p[2], M.block, 'B2 HGH20CA X블록 #'+(i+1));
+});
+
+// F2. X-axis Ball Screw SFU1605
+cyl(0.8, X_RAIL_LEN-4, 0, xBaseY+1.2, 0, M.screw,
+  'F2 SFU1605 X축 볼스크류 (510mm)', 0, Math.PI/2);
+cyl(1.5, 2, -(X_RAIL_LEN/2-1), xBaseY+1.2, 0, M.bearing, 'F2 BK12 X축 고정단');
+cyl(1.2, 2, (X_RAIL_LEN/2-1), xBaseY+1.2, 0, M.bearing, 'F2 BF12 X축 자유단');
+
+// A9. T-Slot Table: 550×380×25mm
+const TABLE_W = 55, TABLE_D = 38, TABLE_H = 2.5;
+const tableY = xBaseY + 1.5 + 1.6 + TABLE_H/2;
+box(TABLE_W, TABLE_H, TABLE_D, 0, tableY, 0, M.table,
+  'A9 T-슬롯 테이블 (550×380×25mm)');
+
+// T-slot grooves (visual)
+for(let i = -14; i <= 14; i += 7) {
+  box(TABLE_W-2, 0.5, 0.85, 0, tableY+TABLE_H/2+0.01, i,
+    mat(0x707880), 'T-슬롯 홈');
+}
+
+
+// ===== Z-AXIS (vertical, Y direction in Three.js) =====
+// Z-axis on column front face, moves spindle up-down
+
+const colFrontZ = COL_Z + COL_D/2 - COL_T; // front face of back wall (inner)
+
+// B3. Z-axis HGR20 Rails (2, on column, vertical)
+const Z_RAIL_LEN = 35; // 350mm
+const Z_RAIL_SEP = 22; // 220mm apart
+const zRailCenterY = BASE_H + COL_H/2 + 2; // centered on column, slightly offset up
+box(2, Z_RAIL_LEN, 1.5, -Z_RAIL_SEP/2, zRailCenterY, colFrontZ+1.5, M.rail,
+  'B3 HGR20 Z축 레일 L (350mm)');
+box(2, Z_RAIL_LEN, 1.5, Z_RAIL_SEP/2, zRailCenterY, colFrontZ+1.5, M.rail,
+  'B3 HGR20 Z축 레일 R (350mm)');
+
+// Z-axis blocks (4) — on carriage, at mid-low position (spindle working height)
+const zCarriageY = zRailCenterY - 4; // carriage slightly below center
+[[-Z_RAIL_SEP/2, zCarriageY-5, colFrontZ+3], [-Z_RAIL_SEP/2, zCarriageY+5, colFrontZ+3],
+ [Z_RAIL_SEP/2, zCarriageY-5, colFrontZ+3],  [Z_RAIL_SEP/2, zCarriageY+5, colFrontZ+3]
+].forEach((p, i) => {
+  box(3.2, 5, 1.6, p[0], p[1], p[2], M.block, 'B3 HGH20CA Z블록 #'+(i+1));
+});
+
+// F3. Z-axis Ball Screw SFU1605
+cyl(0.8, Z_RAIL_LEN-4, 0, zRailCenterY, colFrontZ+2.5, M.screw,
+  'F3 SFU1605 Z축 볼스크류 (310mm)');
+cyl(1.5, 2, 0, BASE_H+COL_H-1, colFrontZ+2.5, M.bearing, 'F3 BK12 Z축 고정단');
+cyl(1.2, 2, 0, BASE_H+6, colFrontZ+2.5, M.bearing, 'F3 BF12 Z축 자유단');
+
+// A10. Z-Carriage Plate: 300×250×20mm
+const ZCAR_W = 30, ZCAR_H = 25, ZCAR_T = 2;
+box(ZCAR_W, ZCAR_H, ZCAR_T, 0, zCarriageY, colFrontZ+4.5, M.frame,
+  'A10 Z축 캐리지 플레이트 (300×250×20mm)');
+
+
+// ===== C. SPINDLE SYSTEM =====
+
+// Spindle mount plate
+const spindleMountZ = colFrontZ + 4.5 + ZCAR_T/2 + 1;
+box(12, 12, 1.5, 0, zCarriageY-3, spindleMountZ, M.clamp,
+  'C1 스핀들 마운트 플레이트');
+
+// 65mm Spindle clamp
+cyl(4.5, 5, 0, zCarriageY-3, spindleMountZ+3, M.clamp,
+  'C2 65mm 스핀들 클램프', Math.PI/2, 0);
+
+// Spindle body (1.5kW water-cooled, ER16)
+cyl(3.25, 20, 0, zCarriageY-3-2, spindleMountZ+3, M.spindle,
+  'C3 수냉 스핀들 1.5kW ER16 (∅65×200mm)');
+
+// ER16 collet (bottom of spindle)
+cyl(1.5, 2, 0, zCarriageY-3-13, spindleMountZ+3, M.coupling,
+  'C4 ER16 콜릿');
+
+// Endmill (cutting tool)
+cyl(0.4, 5, 0, zCarriageY-3-16, spindleMountZ+3, mat(0xdddddd),
+  'C5 엔드밀 ∅8mm');
+
+
+// ===== D. MOTORS (NEMA23) =====
+
+const MOTOR_SIZE = 5.7; // 57mm
+const MOTOR_LEN = 5.6;  // 56mm
+
+// D1. Y-axis motor (rear of base)
+box(MOTOR_SIZE, MOTOR_SIZE, MOTOR_LEN,
+  0, yBsY, -(Y_RAIL_LEN/2+MOTOR_LEN/2+1), M.motor,
+  'D1 NEMA23 Y축 모터 (3.0Nm)');
+cyl(0.4, 3, 0, yBsY, -(Y_RAIL_LEN/2+0.5), M.motorShaft,
+  'D1 Y축 모터 샤프트', Math.PI/2, 0);
+
+// D2. X-axis motor (side of saddle)
+box(MOTOR_LEN, MOTOR_SIZE, MOTOR_SIZE,
+  -(X_RAIL_LEN/2+MOTOR_LEN/2+1), xBaseY+1.2, 0, M.motor,
+  'D2 NEMA23 X축 모터 (3.0Nm)');
+cyl(0.4, 3, -(X_RAIL_LEN/2+0.5), xBaseY+1.2, 0, M.motorShaft,
+  'D2 X축 모터 샤프트', 0, Math.PI/2);
+
+// D3. Z-axis motor (top of column)
+box(MOTOR_SIZE, MOTOR_LEN, MOTOR_SIZE,
+  0, BASE_H+COL_H+COL_T+MOTOR_LEN/2, colFrontZ+2.5, M.motor,
+  'D3 NEMA23 Z축 모터 (3.0Nm)');
+cyl(0.4, 3, 0, BASE_H+COL_H+COL_T+0.5, colFrontZ+2.5, M.motorShaft,
+  'D3 Z축 모터 샤프트');
+
+// Couplings
+cyl(1.2, 2.5, 0, yBsY, -(Y_RAIL_LEN/2-0.5), M.coupling,
+  'D4 Y축 커플링 8×10', Math.PI/2, 0);
+cyl(1.2, 2.5, -(X_RAIL_LEN/2-0.5), xBaseY+1.2, 0, M.coupling,
+  'D4 X축 커플링 8×10', 0, Math.PI/2);
+cyl(1.2, 2.5, 0, BASE_H+COL_H-0.5, colFrontZ+2.5, M.coupling,
+  'D4 Z축 커플링 8×10');
+
+
+// ===== E. 4TH AXIS ROTARY (예비 마운트) =====
+// On T-slot table, for gear/shaft machining
+
+const rotaryX = 12; // offset to right
+box(10, 3, 10, rotaryX, tableY+TABLE_H/2+1.5, 0, M.rotary,
+  'E1 4축 로터리 베이스 (A축)');
+cyl(4, 4, rotaryX, tableY+TABLE_H/2+5, 0, M.rotary,
+  'E2 K11-80 3jaw 척 (∅80mm)', 0, Math.PI/2);
+// Tailstock
+box(6, 5, 6, -15, tableY+TABLE_H/2+2.5, 0, M.rotary,
+  'E3 심압대 MT2');
+cyl(0.6, 8, -15+4+4, tableY+TABLE_H/2+2.5, 0, mat(0x999999),
+  'E3 심압대 센터', 0, Math.PI/2);
+
+// A-axis motor
+box(MOTOR_SIZE*0.8, MOTOR_SIZE*0.8, MOTOR_SIZE*0.8,
+  rotaryX+10, tableY+TABLE_H/2+5, 0, M.motor,
+  'D4 NEMA23 A축 모터');
+
+
+// ===== WORKING VOLUME INDICATOR (투명 박스) =====
+const workVolMat = new THREE.MeshBasicMaterial({
+  color: 0x58a6ff, transparent: true, opacity: 0.06,
+  side: THREE.DoubleSide
+});
+const workVol = new THREE.Mesh(
+  new THREE.BoxGeometry(35, 15, 30), workVolMat
+);
+workVol.position.set(0, tableY + TABLE_H/2 + 7.5 + 1, 0);
+workVol.userData.name = '가공영역 350×300×150mm';
+scene.add(workVol); parts.push(workVol);
+
+// Working volume wireframe
+const wvWire = new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.BoxGeometry(35, 15, 30)),
+  new THREE.LineBasicMaterial({color: 0x58a6ff, opacity: 0.3, transparent: true})
+);
+wvWire.position.copy(workVol.position);
+scene.add(wvWire);
+
+
+// ===== AXIS LABELS =====
+// Simple colored lines showing X, Y, Z directions
+const axisOrigin = new THREE.Vector3(-BASE_W/2-5, 1, BASE_D/2+5);
+const axLen = 8;
+function axisLine(dir, color) {
+  const g = new THREE.BufferGeometry().setFromPoints([
+    axisOrigin, axisOrigin.clone().add(dir.multiplyScalar(axLen))
+  ]);
+  scene.add(new THREE.Line(g, new THREE.LineBasicMaterial({color, linewidth:2})));
+}
+axisLine(new THREE.Vector3(1,0,0), 0xff4444); // X — red
+axisLine(new THREE.Vector3(0,1,0), 0x44ff44); // Z(up) — green
+axisLine(new THREE.Vector3(0,0,1), 0x4444ff); // Y(depth) — blue
+
+
+/* ========== INTERACTION ========== */
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+const labelEl = document.getElementById('label');
+
+window.addEventListener('pointermove', e => {
+  mouse.x = (e.clientX / innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / innerHeight) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects(parts);
+  if (hits.length > 0 && hits[0].object.userData.name) {
+    labelEl.textContent = hits[0].object.userData.name;
+    labelEl.style.display = 'block';
+    labelEl.style.left = (e.clientX + 16) + 'px';
+    labelEl.style.top = (e.clientY - 10) + 'px';
+  } else {
+    labelEl.style.display = 'none';
+  }
+});
+
+/* Resize */
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* Animate */
+function animate() {
+  requestAnimationFrame(animate);
+  ctrl.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+</script>
+</body>
+</html>
