@@ -57,10 +57,30 @@
 
 ## 진행 상태
 - [x] Phase 1: Three.js 3D 외관 뷰 (2026-04-22)
-- [ ] Phase 1: 형님 컨펌
-- [ ] Phase 2: Rhino Python 상세 설계 (플레이트별)
+- [x] Phase 1: 형님 컨펌 완료
+- [x] Phase 2 준비: GrabCAD 14부품 CAD 모델 수집 완료 (2026-04-22)
+- [ ] Phase 2: Rhino Python 상세 설계 (플레이트별) ← **진행중**
 - [ ] Phase 3: Fusion 360 어셈블리 + 간섭 체크 + 2D 도면
 - [ ] Phase 4: STEP + PDF → 공장 발주
+
+## GrabCAD 부품 CAD 모델 (14부품 수집 완료)
+
+| # | 부품 | 업로더 | 포맷 | 비고 |
+|---|------|--------|------|------|
+| 1 | HGR20 레일 | Hasanain Shuja | STEP+SW | parametric 150~4000mm |
+| 2 | HGH20CA 블록 | HIWIN | SW assembly | Block/Endcap/Endseal/Grease Nipple |
+| 3 | SFU1605 볼스크류 | Antonio P. | F3D+STEP | Fusion 360 parametric |
+| 4 | BK12 고정단 | Ahmad Amirivojdan / Thanh Duc | CATIA / SW | 2개 소스 |
+| 5 | BF12 자유단 | Brian | SW | BF12-C7, 6000ZZ bearing |
+| 6 | DSG16H 너트 하우징 | Peca | STEP+IGES | 2480 downloads |
+| 7 | NEMA23 57BYG | Manipal singh | Inventor | — |
+| 8 | Spider coupling | drue flanagan | SW assembly | — |
+| 9 | 1.5kW 스핀들+VFD | Alehandr | STEP+SW+SAT | 80mm 공냉 ER16 |
+| 10 | 65mm 스핀들 마운트 | Matthew Yax | STEP | — |
+| 11 | K11-80+로터리축 | Chip Bark | STEP+SW | 6040 Rotary Axis |
+| 12 | 심압대 MT2 참조 | Peiro Bonnal | Fusion 360 | — |
+| 13 | ER16 콜릿+너트 | k / Nathan Davis | STEP+SE / SW | 블랭크 포함 |
+| 14 | CNC Router v2 풀어셈블리 | Lukas Kvapil | STEP | 330x455x100mm 참조 |
 
 ## 비용 추정
 | 카테고리 | 예상 비용 |

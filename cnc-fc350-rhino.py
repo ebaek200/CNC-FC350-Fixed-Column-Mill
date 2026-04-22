@@ -11,99 +11,75 @@
 # Column at rear (negative Y), operator at front (+Y)
 # ================================================================
 
-import Rhino.Geometry as rg
-import scriptcontext as sc
 import rhinoscriptsyntax as rs
+import scriptcontext as sc
+import Rhino
 import System.Drawing as SD
 
 # ================================================================
-#  DIMENSIONS (mm) — all customizable
+#  DIMENSIONS (mm)
 # ================================================================
 
-# Working Area
 WA_X, WA_Y, WA_Z = 350.0, 300.0, 150.0
 
-# -- A. FRAME PLATES (6061-T6, 25mm thick unless noted) --
-BASE_W, BASE_D, BASE_H  = 700.0, 600.0, 25.0      # A1 Base Plate
-COL_W_OUTER              = 450.0                     # Column outer width
-COL_DEPTH                = 220.0                     # Column depth
-COL_HEIGHT               = 520.0                     # Column height
-WALL_T                   = 25.0                      # Wall thickness
+BASE_W, BASE_D, BASE_H       = 700.0, 600.0, 25.0
+COL_W_OUTER                   = 450.0
+COL_DEPTH                     = 220.0
+COL_HEIGHT                    = 520.0
+WALL_T                        = 25.0
 
-SADDLE_W, SADDLE_D, SADDLE_H = 480.0, 400.0, 20.0  # A8 Y-Saddle
-TABLE_W, TABLE_D, TABLE_H    = 550.0, 380.0, 25.0  # A9 T-slot Table
-ZCAR_W, ZCAR_H, ZCAR_T       = 300.0, 260.0, 20.0  # A10 Z-Carriage
+SADDLE_W, SADDLE_D, SADDLE_H  = 480.0, 400.0, 20.0
+TABLE_W, TABLE_D, TABLE_H     = 550.0, 380.0, 25.0
+ZCAR_W, ZCAR_H, ZCAR_T        = 300.0, 260.0, 20.0
 
-# T-slot specs
-TSLOT_W, TSLOT_D = 8.5, 12.0   # slot width, depth
-TSLOT_PITCH      = 60.0         # slot spacing
+TSLOT_W, TSLOT_D              = 8.5, 12.0
+TSLOT_PITCH                   = 60.0
 
-# -- B. LINEAR RAILS (HGR20) --
-HGR20_W, HGR20_H = 20.0, 27.5  # Rail cross-section
-HGH20_W, HGH20_L, HGH20_H = 44.0, 77.5, 30.0  # Block size
+HGR20_W, HGR20_H              = 20.0, 27.5
+HGH20_W, HGH20_L, HGH20_H    = 44.0, 77.5, 30.0
 
-Y_RAIL_LEN = 500.0   # Y-axis rail length
-Y_RAIL_SEP = 240.0   # Y-axis rail separation
-X_RAIL_LEN = 550.0   # X-axis rail length
-X_RAIL_SEP = 280.0   # X-axis rail separation
-Z_RAIL_LEN = 360.0   # Z-axis rail length
-Z_RAIL_SEP = 220.0   # Z-axis rail separation
+Y_RAIL_LEN, Y_RAIL_SEP        = 500.0, 240.0
+X_RAIL_LEN, X_RAIL_SEP        = 550.0, 280.0
+Z_RAIL_LEN, Z_RAIL_SEP        = 360.0, 220.0
 
-# -- F. BALL SCREWS (SFU1605) --
-BS_SHAFT_R  = 8.0    # Shaft radius (dia 16)
-BS_NUT_R    = 14.0   # Nut radius (dia 28)
-BS_NUT_L    = 40.0   # Nut length
-BK12_R, BK12_L = 19.0, 21.0  # Fixed-end bearing
-BF12_R, BF12_L = 15.0, 15.0  # Free-end bearing
+BS_R, BS_NUT_R, BS_NUT_L      = 8.0, 14.0, 40.0
+BK12_R, BK12_L                = 19.0, 21.0
+BF12_R, BF12_L                = 15.0, 15.0
 
-Y_BS_LEN = 460.0
-X_BS_LEN = 510.0
-Z_BS_LEN = 320.0
+Y_BS_LEN, X_BS_LEN, Z_BS_LEN  = 460.0, 510.0, 320.0
 
-# -- C. SPINDLE --
-SPINDLE_R   = 32.5   # dia 65mm
-SPINDLE_LEN = 200.0
-CLAMP_R     = 45.0   # Clamp outer radius
-CLAMP_H     = 55.0   # Clamp height
-ER_R        = 12.0   # ER16 collet radius
-ENDMILL_R   = 4.0    # 8mm endmill
-ENDMILL_L   = 50.0
+SPINDLE_R, SPINDLE_LEN         = 32.5, 200.0
+CLAMP_R, CLAMP_H               = 45.0, 55.0
+ER_R, ENDMILL_R, ENDMILL_L     = 12.0, 4.0, 50.0
 
-# -- D. MOTORS (NEMA23) --
-MOTOR_W = 57.0
-MOTOR_L = 56.0
-SHAFT_R = 3.175  # 6.35mm dia
-SHAFT_L = 22.0
-COUPLING_R = 12.5
-COUPLING_L = 25.0
+MOTOR_W, MOTOR_L               = 57.0, 56.0
+SHAFT_R, SHAFT_L               = 3.175, 22.0
+COUPLING_R, COUPLING_L         = 12.5, 25.0
 
-# -- E. 4th AXIS ROTARY --
-ROTARY_BASE_W, ROTARY_BASE_D, ROTARY_BASE_H = 100.0, 100.0, 30.0
-CHUCK_R = 40.0   # K11-80, dia 80mm
-CHUCK_L = 40.0
-TAILSTOCK_W, TAILSTOCK_D, TAILSTOCK_H = 60.0, 60.0, 50.0
+ROTARY_BASE                    = 100.0
+ROTARY_BASE_H                  = 30.0
+CHUCK_R, CHUCK_L               = 40.0, 40.0
+TAILSTOCK_W                    = 60.0
+TAILSTOCK_H                    = 50.0
 
 # ================================================================
-#  COMPUTED POSITIONS (Z stack-up from base)
+#  Z STACK-UP
 # ================================================================
 
-# Z stack-up (bottom to top):
-Z_BASE_TOP     = BASE_H                              # 25
-Z_YRAIL_TOP    = Z_BASE_TOP + HGR20_H                # 52.5
-Z_YBLOCK_TOP   = Z_YRAIL_TOP + 16.0                  # 68.5
-Z_SADDLE_BOT   = Z_YBLOCK_TOP                        # 68.5
-Z_SADDLE_TOP   = Z_SADDLE_BOT + SADDLE_H             # 88.5
-Z_XRAIL_TOP    = Z_SADDLE_TOP + HGR20_H              # 116.0
-Z_XBLOCK_TOP   = Z_XRAIL_TOP + 16.0                  # 132.0
-Z_TABLE_BOT    = Z_XBLOCK_TOP                        # 132.0
-Z_TABLE_TOP    = Z_TABLE_BOT + TABLE_H               # 157.0
+Z_BASE_TOP   = BASE_H                              # 25
+Z_YRAIL_TOP  = Z_BASE_TOP + HGR20_H                # 52.5
+Z_YBLOCK_TOP = Z_YRAIL_TOP + 16.0                  # 68.5
+Z_SADDLE_BOT = Z_YBLOCK_TOP                        # 68.5
+Z_SADDLE_TOP = Z_SADDLE_BOT + SADDLE_H             # 88.5
+Z_XRAIL_TOP  = Z_SADDLE_TOP + HGR20_H              # 116
+Z_XBLOCK_TOP = Z_XRAIL_TOP + 16.0                  # 132
+Z_TABLE_BOT  = Z_XBLOCK_TOP                        # 132
+Z_TABLE_TOP  = Z_TABLE_BOT + TABLE_H               # 157
 
-# Column
-COL_Y_BACK     = -BASE_D/2.0                         # -300
-COL_Y_FRONT    = COL_Y_BACK + COL_DEPTH              # -80
+COL_Y_BACK   = -BASE_D / 2.0                       # -300
+COL_Y_FRONT  = COL_Y_BACK + COL_DEPTH              # -80
 
-# Z-carriage mid position (spindle tip at table top + 50mm clearance)
-ZCAR_MID_Z     = Z_TABLE_TOP + 100.0 + ZCAR_H/2.0   # ~387
+ZCAR_MID_Z   = Z_TABLE_TOP + 100.0 + ZCAR_H/2.0   # ~387
 
 # ================================================================
 #  LAYERS
@@ -133,58 +109,64 @@ L = {
     'workvol':  make_layer("REF_WorkVolume",    88, 166, 255),
     'gusset':   make_layer("A_Gusset",         130, 140, 155),
     'tslot':    make_layer("A_TSlot",          100, 110, 120),
+    'dimmed':   make_layer("A_Dimmed",         200, 205, 215),
+    'hole':     make_layer("G_MountHoles",     220,  60,  60),
+    'dowel':    make_layer("G_DowelPins",      255, 120,  40),
 }
 
 # ================================================================
-#  HELPER FUNCTIONS
+#  HELPERS — rs.AddBox / rs.AddCylinder (음영 모드 정상 표시)
 # ================================================================
 
-def box_brep(x0, y0, z0, x1, y1, z1):
-    """Axis-aligned box from (x0,y0,z0) to (x1,y1,z1)"""
-    return rg.Box(rg.Plane.WorldXY,
-        rg.Interval(min(x0,x1), max(x0,x1)),
-        rg.Interval(min(y0,y1), max(y0,y1)),
-        rg.Interval(min(z0,z1), max(z0,z1))).ToBrep()
-
-def box_c(cx, cy, cz, sx, sy, sz):
-    """Box centered at (cx,cy,cz) with size (sx,sy,sz)"""
-    return box_brep(cx-sx/2, cy-sy/2, cz-sz/2, cx+sx/2, cy+sy/2, cz+sz/2)
-
-def cyl_z(cx, cy, z0, z1, r):
-    """Cylinder along Z, center (cx,cy), from z0 to z1"""
-    pl = rg.Plane(rg.Point3d(cx, cy, z0), rg.Vector3d.ZAxis)
-    return rg.Cylinder(rg.Circle(pl, r), abs(z1 - z0)).ToBrep(True, True)
-
-def cyl_y(cx, y0, y1, cz, r):
-    """Cylinder along Y, center (cx,cz), from y0 to y1"""
-    pl = rg.Plane(rg.Point3d(cx, y0, cz), rg.Vector3d.YAxis)
-    return rg.Cylinder(rg.Circle(pl, r), abs(y1 - y0)).ToBrep(True, True)
-
-def cyl_x(x0, x1, cy, cz, r):
-    """Cylinder along X, center (cy,cz), from x0 to x1"""
-    pl = rg.Plane(rg.Point3d(x0, cy, cz), rg.Vector3d.XAxis)
-    return rg.Cylinder(rg.Circle(pl, r), abs(x1 - x0)).ToBrep(True, True)
-
-def add(brep, layer, name=""):
-    """Add brep to document on layer with optional name"""
-    if brep is None:
-        return None
-    oid = sc.doc.Objects.AddBrep(brep)
+def box_c(cx, cy, cz, sx, sy, sz, layer, name=""):
+    """Box centered at (cx,cy,cz), size (sx,sy,sz)"""
+    x0, y0, z0 = cx-sx/2.0, cy-sy/2.0, cz-sz/2.0
+    x1, y1, z1 = cx+sx/2.0, cy+sy/2.0, cz+sz/2.0
+    pts = [
+        (x0,y0,z0),(x1,y0,z0),(x1,y1,z0),(x0,y1,z0),
+        (x0,y0,z1),(x1,y0,z1),(x1,y1,z1),(x0,y1,z1)
+    ]
+    oid = rs.AddBox(pts)
     if oid:
-        obj = sc.doc.Objects.Find(oid)
-        if obj:
-            attr = obj.Attributes
-            li = sc.doc.Layers.FindByFullPath(layer, -1)
-            if li >= 0:
-                attr.LayerIndex = li
-            if name:
-                attr.Name = name
-            obj.CommitChanges()
+        rs.ObjectLayer(oid, layer)
+        if name: rs.ObjectName(oid, name)
     return oid
 
-def add_dot(x, y, z, text):
-    """Add text dot for labeling"""
-    rs.AddTextDot(text, (x, y, z))
+def cyl_z(cx, cy, z_bot, height, radius, layer, name=""):
+    """Cylinder along Z"""
+    plane = rs.MovePlane(rs.WorldXYPlane(), (cx, cy, z_bot))
+    oid = rs.AddCylinder(plane, height, radius, cap=True)
+    if oid:
+        rs.ObjectLayer(oid, layer)
+        if name: rs.ObjectName(oid, name)
+    return oid
+
+def cyl_y(cx, y_start, length, cz, radius, layer, name=""):
+    """Cylinder along Y"""
+    plane = rs.PlaneFromNormal((cx, y_start, cz), (0, 1, 0))
+    oid = rs.AddCylinder(plane, length, radius, cap=True)
+    if oid:
+        rs.ObjectLayer(oid, layer)
+        if name: rs.ObjectName(oid, name)
+    return oid
+
+def cyl_x(x_start, length, cy, cz, radius, layer, name=""):
+    """Cylinder along X"""
+    plane = rs.PlaneFromNormal((x_start, cy, cz), (1, 0, 0))
+    oid = rs.AddCylinder(plane, length, radius, cap=True)
+    if oid:
+        rs.ObjectLayer(oid, layer)
+        if name: rs.ObjectName(oid, name)
+    return oid
+
+def hole_z(cx, cy, z_bot, depth, radius, layer, name=""):
+    """Mounting hole indicator (small cylinder) along Z"""
+    plane = rs.MovePlane(rs.WorldXYPlane(), (cx, cy, z_bot))
+    oid = rs.AddCylinder(plane, depth, radius, cap=True)
+    if oid:
+        rs.ObjectLayer(oid, layer)
+        if name: rs.ObjectName(oid, name)
+    return oid
 
 # ================================================================
 #  CLEANUP
@@ -195,304 +177,344 @@ if all_objs:
     rs.DeleteObjects(all_objs)
 
 # ================================================================
-#  A. FRAME — 6061-T6 Aluminum
+#  A. FRAME — 6061-T6
 # ================================================================
 
-# A1. Base Plate: 700 x 600 x 25 mm
-add(box_c(0, 0, BASE_H/2, BASE_W, BASE_D, BASE_H),
-    L['frame'], "A1 Base Plate 700x600x25")
+# A1. Base Plate
+box_c(0, 0, BASE_H/2, BASE_W, BASE_D, BASE_H,
+      L['frame'], "A1 Base Plate 700x600x25")
 
-# Column Y positions
-bw_cy = COL_Y_BACK + WALL_T/2              # back wall center Y
-lw_cx = -(COL_W_OUTER/2 - WALL_T/2)        # left wall center X
-rw_cx = COL_W_OUTER/2 - WALL_T/2           # right wall center X
-col_cy = COL_Y_BACK + COL_DEPTH/2           # column center Y
-col_cz = BASE_H + COL_HEIGHT/2              # column center Z
+# Column positions
+bw_cy  = COL_Y_BACK + WALL_T/2
+lw_cx  = -(COL_W_OUTER/2 - WALL_T/2)
+rw_cx  = COL_W_OUTER/2 - WALL_T/2
+col_cy = COL_Y_BACK + COL_DEPTH/2
+col_cz = BASE_H + COL_HEIGHT/2
 
-# A2. Column Back Wall: 450 x 25 x 520 mm
-add(box_c(0, bw_cy, col_cz, COL_W_OUTER, WALL_T, COL_HEIGHT),
-    L['frame_dk'], "A2 Column Back Wall 450x25x520")
+# A2. Column Back Wall (딤드)
+box_c(0, bw_cy, col_cz, COL_W_OUTER, WALL_T, COL_HEIGHT,
+      L['dimmed'], "A2 Column Back Wall 450x25x520")
 
-# A3. Column Left Wall: 25 x 220 x 520 mm
-add(box_c(lw_cx, col_cy, col_cz, WALL_T, COL_DEPTH, COL_HEIGHT),
-    L['frame_dk'], "A3 Column Left Wall 25x220x520")
+# A3. Column Left Wall
+box_c(lw_cx, col_cy, col_cz, WALL_T, COL_DEPTH, COL_HEIGHT,
+      L['frame_dk'], "A3 Column Left Wall 25x220x520")
 
-# A4. Column Right Wall: 25 x 220 x 520 mm
-add(box_c(rw_cx, col_cy, col_cz, WALL_T, COL_DEPTH, COL_HEIGHT),
-    L['frame_dk'], "A4 Column Right Wall 25x220x520")
+# A4. Column Right Wall
+box_c(rw_cx, col_cy, col_cz, WALL_T, COL_DEPTH, COL_HEIGHT,
+      L['frame_dk'], "A4 Column Right Wall 25x220x520")
 
-# A5. Column Top Plate: 450 x 220 x 25 mm
+# A5. Column Top Plate (딤드)
 col_top_z = BASE_H + COL_HEIGHT + WALL_T/2
-add(box_c(0, col_cy, col_top_z, COL_W_OUTER, COL_DEPTH, WALL_T),
-    L['frame_dk'], "A5 Column Top Plate 450x220x25")
+box_c(0, col_cy, col_top_z, COL_W_OUTER, COL_DEPTH, WALL_T,
+      L['dimmed'], "A5 Column Top Plate 450x220x25")
 
-# A6. Gusset Reinforcements (8 pieces — 4 bottom, 4 top)
-GUSSET_S = 60.0   # gusset leg length
-GUSSET_T = 20.0   # gusset thickness
+# A6. Gussets (8)
+GUSSET_S, GUSSET_T2 = 60.0, 20.0
 gusset_xs = [lw_cx, rw_cx]
 gusset_ys = [COL_Y_BACK + WALL_T, COL_Y_FRONT - WALL_T]
+gi = 1
+for gx in gusset_xs:
+    for gy in gusset_ys:
+        box_c(gx, gy, BASE_H + GUSSET_S/2, GUSSET_T2, GUSSET_T2, GUSSET_S,
+              L['gusset'], "A6 Gusset Bot #%d" % gi)
+        box_c(gx, gy, BASE_H + COL_HEIGHT - GUSSET_S/2, GUSSET_T2, GUSSET_T2, GUSSET_S,
+              L['gusset'], "A6 Gusset Top #%d" % gi)
+        gi += 1
 
-for i, gx in enumerate(gusset_xs):
-    for j, gy in enumerate(gusset_ys):
-        # Bottom gussets (base to column)
-        add(box_c(gx, gy, BASE_H + GUSSET_S/2, GUSSET_T, GUSSET_T, GUSSET_S),
-            L['gusset'], "A6 Gusset Bottom #%d" % (i*2+j+1))
-        # Top gussets (column to top plate)
-        add(box_c(gx, gy, BASE_H + COL_HEIGHT - GUSSET_S/2, GUSSET_T, GUSSET_T, GUSSET_S),
-            L['gusset'], "A6 Gusset Top #%d" % (i*2+j+1))
-
-# A7. Leveling Feet (4 corners of base)
-FOOT_R, FOOT_H = 20.0, 15.0
-foot_positions = [
-    ( BASE_W/2-40,  BASE_D/2-40),
-    (-BASE_W/2+40,  BASE_D/2-40),
-    ( BASE_W/2-40, -BASE_D/2+40),
-    (-BASE_W/2+40, -BASE_D/2+40),
-]
-for i, (fx, fy) in enumerate(foot_positions):
-    add(cyl_z(fx, fy, -FOOT_H, 0, FOOT_R),
-        L['frame'], "A7 Leveling Foot #%d" % (i+1))
+# A7. Leveling Feet
+for i, (fx, fy) in enumerate([
+    (BASE_W/2-40, BASE_D/2-40), (-BASE_W/2+40, BASE_D/2-40),
+    (BASE_W/2-40, -BASE_D/2+40), (-BASE_W/2+40, -BASE_D/2+40)]):
+    cyl_z(fx, fy, -15, 15, 20, L['frame'], "A7 Leveling Foot #%d" % (i+1))
 
 # ================================================================
-#  Y-AXIS (front-back, along Y direction)
-#  Rails on base, moves saddle
+#  A1 MOUNTING HOLES — Base Plate
 # ================================================================
 
-# B1. Y-axis HGR20 Rails (2, on base top, running in Y)
-yr_z = Z_BASE_TOP  # rail bottom at base top
-for sign, side in [(-1, "L"), (1, "R")]:
-    rx = sign * Y_RAIL_SEP/2
-    add(box_c(rx, 0, yr_z + HGR20_H/2, HGR20_W, Y_RAIL_LEN, HGR20_H),
-        L['rail'], "B1 HGR20 Y-Rail %s (500mm)" % side)
+HOLE_R_M5  = 2.5
+HOLE_R_M6  = 3.0
+HOLE_R_M8  = 4.0
+HOLE_R_M10 = 5.5
+DOWEL_R    = 4.0
 
-# Y-axis HGH20CA Blocks (4, on rails)
-yb_z = Z_YRAIL_TOP + HGH20_H/2 - HGR20_H/2  # block center Z
-y_block_ys = [-Y_RAIL_LEN/4, Y_RAIL_LEN/4]
+# HGR20 Y-Rail bolt holes (M5, 16 holes)
+for sx in [-1, 1]:
+    rx = sx * Y_RAIL_SEP / 2.0
+    for yy in [-220, -160, -100, -40, 20, 80, 140, 200]:
+        hole_z(rx, yy, 0, BASE_H, HOLE_R_M5, L['hole'], "H M5 Y-Rail")
+
+# BK12 Y-axis (rear, 2 holes)
+for dx in [-16, 16]:
+    hole_z(dx, -Y_BS_LEN/2, 0, BASE_H, HOLE_R_M5, L['hole'], "H M5 BK12-Y")
+
+# BF12 Y-axis (front, 2 holes)
+for dx in [-16, 16]:
+    hole_z(dx, Y_BS_LEN/2, 0, BASE_H, HOLE_R_M5, L['hole'], "H M5 BF12-Y")
+
+# Column Back Wall A2 bolts (M10, 6 holes)
+for xx in [-200, -120, -40, 40, 120, 200]:
+    hole_z(xx, bw_cy, 0, BASE_H, HOLE_R_M10, L['hole'], "H M10 A2-Base")
+# A2 dowel pins
+for xx in [-100, 100]:
+    hole_z(xx, bw_cy, 0, BASE_H, DOWEL_R, L['dowel'], "H Dowel A2")
+
+# Column Side Wall A3/A4 bolts (M10, 4 per side)
+for wx in [lw_cx, rw_cx]:
+    for yy in [-270, -230, -150, -110]:
+        hole_z(wx, yy, 0, BASE_H, HOLE_R_M10, L['hole'], "H M10 SideWall-Base")
+    # Dowel pins
+    for yy in [-250, -130]:
+        hole_z(wx, yy, 0, BASE_H, DOWEL_R, L['dowel'], "H Dowel SideWall")
+
+# Leveling Feet (M12, 4 holes)
+for fx, fy in [(310,260),(-310,260),(310,-260),(-310,-260)]:
+    hole_z(fx, fy, -5, 5, 6.0, L['hole'], "H M12 LevFoot")
+
+# ================================================================
+#  Y-AXIS
+# ================================================================
+
+yr_z = Z_BASE_TOP
+ybs_z = Z_BASE_TOP + 15.0
+
+# B1. Y-Rails
+for sign, side in [(-1,"L"),(1,"R")]:
+    box_c(sign*Y_RAIL_SEP/2, 0, yr_z+HGR20_H/2, HGR20_W, Y_RAIL_LEN, HGR20_H,
+          L['rail'], "B1 HGR20 Y-Rail %s" % side)
+
+# Y-Blocks
 idx = 1
-for sign in [-1, 1]:
-    for yy in y_block_ys:
-        add(box_c(sign * Y_RAIL_SEP/2, yy, yr_z + HGR20_H + 8,
-                  HGH20_W, HGH20_L, HGH20_H - HGR20_H),
-            L['block'], "B1 HGH20CA Y-Block #%d" % idx)
+for sx in [-1, 1]:
+    for yy in [-Y_RAIL_LEN/4, Y_RAIL_LEN/4]:
+        box_c(sx*Y_RAIL_SEP/2, yy, yr_z+HGR20_H+8,
+              HGH20_W, HGH20_L, HGH20_H-HGR20_H,
+              L['block'], "B1 HGH20CA Y-Block #%d" % idx)
         idx += 1
 
-# F1. Y-axis Ball Screw SFU1605 (460mm)
-ybs_z = Z_BASE_TOP + 15.0  # ball screw center Z
-add(cyl_y(0, -Y_BS_LEN/2, Y_BS_LEN/2, ybs_z, BS_SHAFT_R),
-    L['screw'], "F1 SFU1605 Y-Screw Shaft (460mm)")
-# Nut
-add(cyl_y(0, -BS_NUT_L/2, BS_NUT_L/2, ybs_z, BS_NUT_R),
-    L['screw'], "F1 Y-Screw Nut")
-# BK12 (fixed end, rear)
-add(cyl_y(0, -Y_BS_LEN/2-BK12_L, -Y_BS_LEN/2, ybs_z, BK12_R),
-    L['bearing'], "F1 BK12 Y Fixed-End")
-# BF12 (free end, front)
-add(cyl_y(0, Y_BS_LEN/2, Y_BS_LEN/2+BF12_L, ybs_z, BF12_R),
-    L['bearing'], "F1 BF12 Y Free-End")
+# F1. Y Ball Screw
+cyl_y(0, -Y_BS_LEN/2, Y_BS_LEN, ybs_z, BS_R, L['screw'], "F1 SFU1605 Y-Shaft")
+cyl_y(0, -BS_NUT_L/2, BS_NUT_L, ybs_z, BS_NUT_R, L['screw'], "F1 Y-Nut")
+cyl_y(0, -Y_BS_LEN/2-BK12_L, BK12_L, ybs_z, BK12_R, L['bearing'], "F1 BK12 Y")
+cyl_y(0, Y_BS_LEN/2, BF12_L, ybs_z, BF12_R, L['bearing'], "F1 BF12 Y")
 
-# A8. Y-Saddle Plate: 480 x 400 x 20 mm
-add(box_c(0, 0, Z_SADDLE_BOT + SADDLE_H/2, SADDLE_W, SADDLE_D, SADDLE_H),
-    L['frame'], "A8 Y-Saddle Plate 480x400x20")
+# A8. Y-Saddle
+box_c(0, 0, Z_SADDLE_BOT+SADDLE_H/2, SADDLE_W, SADDLE_D, SADDLE_H,
+      L['frame'], "A8 Y-Saddle 480x400x20")
 
 # ================================================================
-#  X-AXIS (left-right, along X direction)
-#  Rails on saddle, moves table
+#  A8 MOUNTING HOLES — Y-Saddle
 # ================================================================
 
-# B2. X-axis HGR20 Rails (2, on saddle top, running in X)
+# HGH20CA Y-Block tapped holes (M6, 4 per block, 4 blocks = 16)
+for sx in [-1, 1]:
+    for yy_off in [-Y_RAIL_LEN/4, Y_RAIL_LEN/4]:
+        bx = sx * Y_RAIL_SEP / 2.0
+        by = yy_off
+        for ddx in [-16, 16]:
+            for ddy in [-25, 25]:
+                hole_z(bx+ddx, by+ddy, Z_SADDLE_BOT, SADDLE_H,
+                       HOLE_R_M6, L['hole'], "H M6 Y-Block")
+
+# DSG16H Y-nut (4× M5 + Ø28 bore)
+for dx, dy in [(-24, -18), (24, -18), (-24, 18), (24, 18)]:
+    hole_z(dx, dy, Z_SADDLE_BOT, SADDLE_H,
+           HOLE_R_M5, L['hole'], "H M5 DSG16H-Y")
+hole_z(0, 0, Z_SADDLE_BOT, SADDLE_H, 14.0, L['hole'], "H Bore DSG16H-Y")
+
+# ================================================================
+#  X-AXIS
+# ================================================================
+
 xr_z = Z_SADDLE_TOP
-for sign, side in [(-1, "F"), (1, "R")]:
-    ry = sign * X_RAIL_SEP/2
-    add(box_c(0, ry, xr_z + HGR20_H/2, X_RAIL_LEN, HGR20_W, HGR20_H),
-        L['rail'], "B2 HGR20 X-Rail %s (550mm)" % side)
-
-# X-axis Blocks (4)
-idx = 1
-x_block_xs = [-X_RAIL_LEN/4, X_RAIL_LEN/4]
-for sign in [-1, 1]:
-    for xx in x_block_xs:
-        add(box_c(xx, sign * X_RAIL_SEP/2, xr_z + HGR20_H + 8,
-                  HGH20_L, HGH20_W, HGH20_H - HGR20_H),
-            L['block'], "B2 HGH20CA X-Block #%d" % idx)
-        idx += 1
-
-# F2. X-axis Ball Screw SFU1605 (510mm)
 xbs_z = Z_SADDLE_TOP + 15.0
-add(cyl_x(-X_BS_LEN/2, X_BS_LEN/2, 0, xbs_z, BS_SHAFT_R),
-    L['screw'], "F2 SFU1605 X-Screw Shaft (510mm)")
-add(cyl_x(-BS_NUT_L/2, BS_NUT_L/2, 0, xbs_z, BS_NUT_R),
-    L['screw'], "F2 X-Screw Nut")
-add(cyl_x(-X_BS_LEN/2-BK12_L, -X_BS_LEN/2, 0, xbs_z, BK12_R),
-    L['bearing'], "F2 BK12 X Fixed-End")
-add(cyl_x(X_BS_LEN/2, X_BS_LEN/2+BF12_L, 0, xbs_z, BF12_R),
-    L['bearing'], "F2 BF12 X Free-End")
 
-# A9. T-Slot Table: 550 x 380 x 25 mm
-add(box_c(0, 0, Z_TABLE_BOT + TABLE_H/2, TABLE_W, TABLE_D, TABLE_H),
-    L['table'], "A9 T-Slot Table 550x380x25")
+# B2. X-Rails
+for sign, side in [(-1,"F"),(1,"R")]:
+    box_c(0, sign*X_RAIL_SEP/2, xr_z+HGR20_H/2, X_RAIL_LEN, HGR20_W, HGR20_H,
+          L['rail'], "B2 HGR20 X-Rail %s" % side)
 
-# T-Slot grooves (visual)
-n_slots = int(TABLE_D / TSLOT_PITCH)
-for i in range(n_slots + 1):
-    sy = -TABLE_D/2 + 40 + i * TSLOT_PITCH
-    if abs(sy) < TABLE_D/2 - 20:
-        add(box_c(0, sy, Z_TABLE_TOP - TSLOT_D/2, TABLE_W - 20, TSLOT_W, TSLOT_D),
-            L['tslot'], "A9 T-Slot #%d" % (i+1))
-
-# ================================================================
-#  Z-AXIS (vertical, along Z direction)
-#  Rails on column front face, moves spindle
-# ================================================================
-
-# Z-rails mount on the FRONT face of the back wall
-zr_y = COL_Y_BACK + WALL_T + 1.0  # just in front of back wall inner face
-
-# B3. Z-axis HGR20 Rails (2, vertical, on column)
-zr_z_center = BASE_H + COL_HEIGHT/2 + 20  # slightly above column center
-for sign, side in [(-1, "L"), (1, "R")]:
-    rx = sign * Z_RAIL_SEP/2
-    add(box_c(rx, zr_y + HGR20_H/2, zr_z_center, HGR20_W, HGR20_H, Z_RAIL_LEN),
-        L['rail'], "B3 HGR20 Z-Rail %s (360mm)" % side)
-
-# Z-axis Blocks (4)
+# X-Blocks
 idx = 1
-zb_offsets = [-ZCAR_H/4, ZCAR_H/4]
-for sign in [-1, 1]:
-    for dz in zb_offsets:
-        add(box_c(sign * Z_RAIL_SEP/2, zr_y + HGR20_H + 8,
-                  ZCAR_MID_Z + dz,
-                  HGH20_W, HGH20_H - HGR20_H, HGH20_L),
-            L['block'], "B3 HGH20CA Z-Block #%d" % idx)
+for sy in [-1, 1]:
+    for xx in [-X_RAIL_LEN/4, X_RAIL_LEN/4]:
+        box_c(xx, sy*X_RAIL_SEP/2, xr_z+HGR20_H+8,
+              HGH20_L, HGH20_W, HGH20_H-HGR20_H,
+              L['block'], "B2 HGH20CA X-Block #%d" % idx)
         idx += 1
 
-# F3. Z-axis Ball Screw SFU1605 (320mm)
+# F2. X Ball Screw
+cyl_x(-X_BS_LEN/2, X_BS_LEN, 0, xbs_z, BS_R, L['screw'], "F2 SFU1605 X-Shaft")
+cyl_x(-BS_NUT_L/2, BS_NUT_L, 0, xbs_z, BS_NUT_R, L['screw'], "F2 X-Nut")
+cyl_x(-X_BS_LEN/2-BK12_L, BK12_L, 0, xbs_z, BK12_R, L['bearing'], "F2 BK12 X")
+cyl_x(X_BS_LEN/2, BF12_L, 0, xbs_z, BF12_R, L['bearing'], "F2 BF12 X")
+
+# A9. T-Slot Table
+box_c(0, 0, Z_TABLE_BOT+TABLE_H/2, TABLE_W, TABLE_D, TABLE_H,
+      L['table'], "A9 T-Slot Table 550x380x25")
+
+# T-Slot grooves
+for i in range(5):
+    sy = -TABLE_D/2 + 50 + i*TSLOT_PITCH
+    if abs(sy) < TABLE_D/2 - 20:
+        box_c(0, sy, Z_TABLE_TOP-TSLOT_D/2, TABLE_W-20, TSLOT_W, TSLOT_D,
+              L['tslot'], "A9 T-Slot #%d" % (i+1))
+
+# ================================================================
+#  A9 MOUNTING HOLES — T-Slot Table
+# ================================================================
+
+# HGH20CA X-Block tapped holes (M6, 4 per block, 4 blocks = 16)
+for sy in [-1, 1]:
+    for xx_off in [-X_RAIL_LEN/4, X_RAIL_LEN/4]:
+        bx = xx_off
+        by = sy * X_RAIL_SEP / 2.0
+        for ddx in [-25, 25]:
+            for ddy in [-16, 16]:
+                hole_z(bx+ddx, by+ddy, Z_TABLE_BOT, TABLE_H,
+                       HOLE_R_M6, L['hole'], "H M6 X-Block")
+
+# DSG16H X-nut (4× M5 + Ø28 bore)
+for dx, dy in [(-24, -18), (24, -18), (-24, 18), (24, 18)]:
+    hole_z(dx, dy, Z_TABLE_BOT, TABLE_H,
+           HOLE_R_M5, L['hole'], "H M5 DSG16H-X")
+hole_z(0, 0, Z_TABLE_BOT, TABLE_H, 14.0, L['hole'], "H Bore DSG16H-X")
+
+# ================================================================
+#  Z-AXIS
+# ================================================================
+
+zr_y = COL_Y_BACK + WALL_T + 1.0
+zr_z_center = BASE_H + COL_HEIGHT/2 + 20
+
+# B3. Z-Rails
+for sign, side in [(-1,"L"),(1,"R")]:
+    box_c(sign*Z_RAIL_SEP/2, zr_y+HGR20_H/2, zr_z_center,
+          HGR20_W, HGR20_H, Z_RAIL_LEN,
+          L['rail'], "B3 HGR20 Z-Rail %s" % side)
+
+# Z-Blocks
+idx = 1
+for sx in [-1, 1]:
+    for dz in [-ZCAR_H/4, ZCAR_H/4]:
+        box_c(sx*Z_RAIL_SEP/2, zr_y+HGR20_H+8, ZCAR_MID_Z+dz,
+              HGH20_W, HGH20_H-HGR20_H, HGH20_L,
+              L['block'], "B3 HGH20CA Z-Block #%d" % idx)
+        idx += 1
+
+# F3. Z Ball Screw
 zbs_y = zr_y + 15
-add(cyl_z(0, zbs_y, zr_z_center - Z_BS_LEN/2, zr_z_center + Z_BS_LEN/2, BS_SHAFT_R),
-    L['screw'], "F3 SFU1605 Z-Screw Shaft (320mm)")
-add(cyl_z(0, zbs_y, ZCAR_MID_Z - BS_NUT_L/2, ZCAR_MID_Z + BS_NUT_L/2, BS_NUT_R),
-    L['screw'], "F3 Z-Screw Nut")
-add(cyl_z(0, zbs_y, zr_z_center + Z_BS_LEN/2, zr_z_center + Z_BS_LEN/2 + BK12_L, BK12_R),
-    L['bearing'], "F3 BK12 Z Fixed-End (Top)")
-add(cyl_z(0, zbs_y, zr_z_center - Z_BS_LEN/2 - BF12_L, zr_z_center - Z_BS_LEN/2, BF12_R),
-    L['bearing'], "F3 BF12 Z Free-End (Bottom)")
+cyl_z(0, zbs_y, zr_z_center-Z_BS_LEN/2, Z_BS_LEN, BS_R,
+      L['screw'], "F3 SFU1605 Z-Shaft")
+cyl_z(0, zbs_y, ZCAR_MID_Z-BS_NUT_L/2, BS_NUT_L, BS_NUT_R,
+      L['screw'], "F3 Z-Nut")
+cyl_z(0, zbs_y, zr_z_center+Z_BS_LEN/2, BK12_L, BK12_R,
+      L['bearing'], "F3 BK12 Z")
+cyl_z(0, zbs_y, zr_z_center-Z_BS_LEN/2-BF12_L, BF12_L, BF12_R,
+      L['bearing'], "F3 BF12 Z")
 
-# A10. Z-Carriage Plate: 300 x 20 x 260 mm
+# A10. Z-Carriage
 zcar_y = zr_y + HGR20_H + 20 + ZCAR_T/2
-add(box_c(0, zcar_y, ZCAR_MID_Z, ZCAR_W, ZCAR_T, ZCAR_H),
-    L['frame'], "A10 Z-Carriage Plate 300x20x260")
+box_c(0, zcar_y, ZCAR_MID_Z, ZCAR_W, ZCAR_T, ZCAR_H,
+      L['frame'], "A10 Z-Carriage 300x20x260")
 
 # ================================================================
-#  C. SPINDLE SYSTEM — 1.5kW Water-Cooled ER16
+#  A5 MOUNTING HOLES — Column Top Plate (Z-Motor)
 # ================================================================
 
-sp_y = zcar_y + ZCAR_T/2 + CLAMP_H/2 + 5  # in front of carriage
-sp_z = ZCAR_MID_Z - 20  # spindle center, slightly below carriage center
-
-# C1. Spindle Mount Plate
-add(box_c(0, zcar_y + ZCAR_T/2 + 8, sp_z, 120, 16, 120),
-    L['clamp'], "C1 Spindle Mount Plate")
-
-# C2. 65mm Spindle Clamp
-add(cyl_z(0, sp_y, sp_z - CLAMP_H/2, sp_z + CLAMP_H/2, CLAMP_R),
-    L['clamp'], "C2 65mm Spindle Clamp")
-
-# C3. Spindle Body (1.5kW, dia 65, length 200)
-add(cyl_z(0, sp_y, sp_z - SPINDLE_LEN/2, sp_z + SPINDLE_LEN/2, SPINDLE_R),
-    L['spindle'], "C3 Spindle 1.5kW ER16 (65x200mm)")
-
-# C4. ER16 Collet (bottom)
-er_z = sp_z - SPINDLE_LEN/2
-add(cyl_z(0, sp_y, er_z - 15, er_z, ER_R),
-    L['spindle'], "C4 ER16 Collet")
-
-# C5. Endmill
-em_z = er_z - 15
-add(cyl_z(0, sp_y, em_z - ENDMILL_L, em_z, ENDMILL_R),
-    L['shaft'], "C5 Endmill 8mm")
+# NEMA23 Z-Motor mount (4× M5 + pilot Ø38.1)
+nema_off = 23.57  # 47.14/2
+for dx in [-nema_off, nema_off]:
+    for dy in [-nema_off, nema_off]:
+        hole_z(dx, zbs_y+dy, col_top_z-WALL_T/2, WALL_T,
+               HOLE_R_M5, L['hole'], "H M5 NEMA23-Z")
+hole_z(0, zbs_y, col_top_z-WALL_T/2, WALL_T,
+       19.0, L['hole'], "H Pilot NEMA23-Z")
 
 # ================================================================
-#  D. MOTORS — NEMA23 3.0Nm x4
+#  C. SPINDLE
 # ================================================================
 
-# D1. Y-axis Motor (rear of base)
+sp_y = zcar_y + ZCAR_T/2 + CLAMP_H/2 + 5
+sp_z = ZCAR_MID_Z - 20
+
+box_c(0, zcar_y+ZCAR_T/2+8, sp_z, 120, 16, 120,
+      L['clamp'], "C1 Spindle Mount Plate")
+cyl_z(0, sp_y, sp_z-CLAMP_H/2, CLAMP_H, CLAMP_R,
+      L['clamp'], "C2 65mm Clamp")
+cyl_z(0, sp_y, sp_z-SPINDLE_LEN/2, SPINDLE_LEN, SPINDLE_R,
+      L['spindle'], "C3 Spindle 1.5kW ER16")
+cyl_z(0, sp_y, sp_z-SPINDLE_LEN/2-15, 15, ER_R,
+      L['spindle'], "C4 ER16 Collet")
+cyl_z(0, sp_y, sp_z-SPINDLE_LEN/2-15-ENDMILL_L, ENDMILL_L, ENDMILL_R,
+      L['shaft'], "C5 Endmill 8mm")
+
+# ================================================================
+#  D. MOTORS
+# ================================================================
+
 ym_y = -Y_BS_LEN/2 - BK12_L - COUPLING_L - MOTOR_L/2
-add(box_c(0, ym_y, ybs_z, MOTOR_W, MOTOR_L, MOTOR_W),
-    L['motor'], "D1 NEMA23 Y-Motor (3.0Nm)")
-add(cyl_y(0, ym_y + MOTOR_L/2, ym_y + MOTOR_L/2 + SHAFT_L, ybs_z, SHAFT_R),
-    L['shaft'], "D1 Y-Motor Shaft")
-# Coupling
-add(cyl_y(0, -Y_BS_LEN/2 - BK12_L - COUPLING_L, -Y_BS_LEN/2 - BK12_L, ybs_z, COUPLING_R),
-    L['coupling'], "D1 Y-Coupling 8x10")
+box_c(0, ym_y, ybs_z, MOTOR_W, MOTOR_L, MOTOR_W,
+      L['motor'], "D1 NEMA23 Y-Motor")
+cyl_y(0, -Y_BS_LEN/2-BK12_L-COUPLING_L, COUPLING_L, ybs_z, COUPLING_R,
+      L['coupling'], "D1 Y-Coupling")
 
-# D2. X-axis Motor (left side of saddle)
 xm_x = -X_BS_LEN/2 - BK12_L - COUPLING_L - MOTOR_L/2
-add(box_c(xm_x, 0, xbs_z, MOTOR_L, MOTOR_W, MOTOR_W),
-    L['motor'], "D2 NEMA23 X-Motor (3.0Nm)")
-add(cyl_x(xm_x + MOTOR_L/2, xm_x + MOTOR_L/2 + SHAFT_L, 0, xbs_z, SHAFT_R),
-    L['shaft'], "D2 X-Motor Shaft")
-add(cyl_x(-X_BS_LEN/2 - BK12_L - COUPLING_L, -X_BS_LEN/2 - BK12_L, 0, xbs_z, COUPLING_R),
-    L['coupling'], "D2 X-Coupling 8x10")
+box_c(xm_x, 0, xbs_z, MOTOR_L, MOTOR_W, MOTOR_W,
+      L['motor'], "D2 NEMA23 X-Motor")
+cyl_x(-X_BS_LEN/2-BK12_L-COUPLING_L, COUPLING_L, 0, xbs_z, COUPLING_R,
+      L['coupling'], "D2 X-Coupling")
 
-# D3. Z-axis Motor (top of column)
 zm_z = col_top_z + WALL_T/2 + COUPLING_L + MOTOR_L/2
-add(box_c(0, zbs_y, zm_z, MOTOR_W, MOTOR_W, MOTOR_L),
-    L['motor'], "D3 NEMA23 Z-Motor (3.0Nm)")
-add(cyl_z(0, zbs_y, col_top_z + WALL_T/2, col_top_z + WALL_T/2 + SHAFT_L, SHAFT_R),
-    L['shaft'], "D3 Z-Motor Shaft")
-add(cyl_z(0, zbs_y, zr_z_center + Z_BS_LEN/2 + BK12_L,
-          zr_z_center + Z_BS_LEN/2 + BK12_L + COUPLING_L, COUPLING_R),
-    L['coupling'], "D3 Z-Coupling 8x10")
+box_c(0, zbs_y, zm_z, MOTOR_W, MOTOR_W, MOTOR_L,
+      L['motor'], "D3 NEMA23 Z-Motor")
+cyl_z(0, zbs_y, col_top_z+WALL_T/2, COUPLING_L, COUPLING_R,
+      L['coupling'], "D3 Z-Coupling")
 
 # ================================================================
-#  E. 4TH AXIS ROTARY — K11-80 + Tailstock
+#  E. 4TH AXIS ROTARY
 # ================================================================
 
-# Rotary on right side of table
 rot_x = 100.0
 rot_z = Z_TABLE_TOP
 
-# E1. Rotary Base
-add(box_c(rot_x, 0, rot_z + ROTARY_BASE_H/2,
-          ROTARY_BASE_W, ROTARY_BASE_D, ROTARY_BASE_H),
-    L['rotary'], "E1 Rotary Base (A-axis)")
+box_c(rot_x, 0, rot_z+ROTARY_BASE_H/2, ROTARY_BASE, ROTARY_BASE, ROTARY_BASE_H,
+      L['rotary'], "E1 Rotary Base")
+cyl_x(rot_x-CHUCK_L/2, CHUCK_L, 0, rot_z+ROTARY_BASE_H+CHUCK_R, CHUCK_R,
+      L['rotary'], "E2 K11-80 Chuck")
 
-# E2. K11-80 Chuck (along X axis)
-chuck_z = rot_z + ROTARY_BASE_H + CHUCK_R
-add(cyl_x(rot_x - CHUCK_L/2, rot_x + CHUCK_L/2, 0, chuck_z, CHUCK_R),
-    L['rotary'], "E2 K11-80 3-Jaw Chuck (dia 80mm)")
-
-# E3. Tailstock (left side)
 ts_x = -120.0
-add(box_c(ts_x, 0, rot_z + TAILSTOCK_H/2,
-          TAILSTOCK_W, TAILSTOCK_D, TAILSTOCK_H),
-    L['rotary'], "E3 Tailstock MT2")
-# Tailstock center point
-add(cyl_x(ts_x + TAILSTOCK_W/2, rot_x - CHUCK_L/2, 0, chuck_z, 3.0),
-    L['shaft'], "E3 Tailstock Center")
+chuck_z = rot_z + ROTARY_BASE_H + CHUCK_R
+box_c(ts_x, 0, rot_z+TAILSTOCK_H/2, TAILSTOCK_W, TAILSTOCK_W, TAILSTOCK_H,
+      L['rotary'], "E3 Tailstock MT2")
+cyl_x(ts_x+TAILSTOCK_W/2, rot_x-CHUCK_L/2-ts_x-TAILSTOCK_W/2, 0, chuck_z, 3.0,
+      L['shaft'], "E3 Center")
 
-# E4. A-axis Motor
-add(box_c(rot_x + CHUCK_L/2 + COUPLING_L + MOTOR_L/2, 0, chuck_z,
-          MOTOR_L, MOTOR_W*0.85, MOTOR_W*0.85),
-    L['motor'], "D4 NEMA23 A-Motor (3.0Nm)")
+box_c(rot_x+CHUCK_L/2+COUPLING_L+MOTOR_L/2, 0, chuck_z,
+      MOTOR_L, MOTOR_W*0.85, MOTOR_W*0.85,
+      L['motor'], "D4 NEMA23 A-Motor")
 
 # ================================================================
-#  REF: WORKING VOLUME (transparent reference box)
+#  WORK VOLUME — 엣지 라인만 (투명)
 # ================================================================
 
-wv_z = Z_TABLE_TOP + WA_Z/2 + 5  # 5mm above table
-add(box_c(0, 0, wv_z, WA_X, WA_Y, WA_Z),
-    L['workvol'], "REF Working Volume 350x300x150mm")
+wv_z = Z_TABLE_TOP + WA_Z/2 + 5
+pts = [
+    (-WA_X/2,-WA_Y/2,wv_z-WA_Z/2),( WA_X/2,-WA_Y/2,wv_z-WA_Z/2),
+    ( WA_X/2, WA_Y/2,wv_z-WA_Z/2),(-WA_X/2, WA_Y/2,wv_z-WA_Z/2),
+    (-WA_X/2,-WA_Y/2,wv_z+WA_Z/2),( WA_X/2,-WA_Y/2,wv_z+WA_Z/2),
+    ( WA_X/2, WA_Y/2,wv_z+WA_Z/2),(-WA_X/2, WA_Y/2,wv_z+WA_Z/2),
+]
+for a, b in [(0,1),(1,2),(2,3),(3,0),(4,5),(5,6),(6,7),(7,4),(0,4),(1,5),(2,6),(3,7)]:
+    lid = rs.AddLine(pts[a], pts[b])
+    if lid:
+        rs.ObjectLayer(lid, L['workvol'])
 
 # ================================================================
-#  TEXT DOTS — Key dimension labels
+#  LABELS
 # ================================================================
 
-add_dot(0, 0, -30, "CNC-FC350 | 350x300x150mm | Fixed-Column Box Frame")
-add_dot(0, BASE_D/2 + 30, Z_TABLE_TOP, "Table Top Z=%.0f" % Z_TABLE_TOP)
-add_dot(BASE_W/2 + 20, 0, BASE_H/2, "X -->")
-add_dot(0, BASE_D/2 + 20, BASE_H/2, "Y --> (Operator)")
-add_dot(-BASE_W/2 - 30, 0, BASE_H + COL_HEIGHT/2, "Z ^")
-add_dot(0, 0, wv_z + WA_Z/2 + 10, "Work Volume: 350x300x150mm")
+rs.AddTextDot("CNC-FC350 | 350x300x150mm", (0, 0, -30))
+rs.AddTextDot("Work Volume 350x300x150", (0, 0, wv_z+WA_Z/2+10))
 
 # ================================================================
 #  FINISH
@@ -501,24 +523,16 @@ add_dot(0, 0, wv_z + WA_Z/2 + 10, "Work Volume: 350x300x150mm")
 rs.EnableRedraw(True)
 rs.ZoomExtents()
 
-print("=" * 60)
-print("  CNC-FC350 Fixed-Column Box-Frame Mill")
-print("  Working Area: 350 x 300 x 150 mm")
-print("  Components generated successfully!")
-print("  Layers: %d" % len(L))
-print("=" * 60)
-print("")
-print("  Z Stack-up:")
-print("    Base top:    Z = %.1f mm" % Z_BASE_TOP)
-print("    Y-rail top:  Z = %.1f mm" % Z_YRAIL_TOP)
-print("    Saddle top:  Z = %.1f mm" % Z_SADDLE_TOP)
-print("    X-rail top:  Z = %.1f mm" % Z_XRAIL_TOP)
-print("    Table top:   Z = %.1f mm" % Z_TABLE_TOP)
-print("    Z-carriage:  Z = %.1f mm (mid)" % ZCAR_MID_Z)
-print("")
-print("  Frame plates: A1~A10 (10 plates)")
-print("  HGR20 rails: 6 (2 per axis)")
-print("  HGH20CA blocks: 12 (4 per axis)")
-print("  SFU1605 screws: 3 (XYZ)")
-print("  NEMA23 motors: 4 (XYZ+A)")
-print("=" * 60)
+try:
+    rs.ViewDisplayMode(rs.CurrentView(), "Shaded")
+except:
+    pass
+
+print("=" * 50)
+print("  CNC-FC350 Phase 2 — Generated OK!")
+print("  Table top: Z = %.0f mm" % Z_TABLE_TOP)
+print("  Parts: ~70 body + ~120 mounting holes")
+print("  Layers: 18 (frame/linear/screw/motor/holes)")
+print("  Hole layers: G_MountHoles (red), G_DowelPins (orange)")
+print("  Toggle holes: Layer panel > G_MountHoles on/off")
+print("=" * 50)
